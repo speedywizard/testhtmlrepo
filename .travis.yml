@@ -47,4 +47,4 @@ script:
 - export PACKER_VERSION="1.5.1"
 - export TRAVIS_UID="1000"
 - pwd
-- echo ${TRAVIS_UID} && pushd packer-templates && make ci-${IMAGE} && popd
+- echo ${TRAVIS_UID} && pushd packer-templates && sudo make ci-${IMAGE} && popd
