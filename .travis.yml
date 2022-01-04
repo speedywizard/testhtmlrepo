@@ -34,9 +34,9 @@ script:
 - export AWS_SECRET_ACCESS_KEY=$LXC_AWS_SECRET_ACCESS_KEY
 - export ARTIFACTS_BUCKET="travis-lxc-images"
 - export TRAVIS_UID="1000"
-- lxc launch ubuntu:20.04 lxccont
-- lxc exec lxccont -- apt-get update
-- lxc exec lxccont -- apt-get install -y python3 make g++
-- lxc stop lxccont
-- lxc publish lxccont --alias custom-lxd-image
-- lxc image export custom-lxd-image custom-lxd-image
+- sudo lxc launch ubuntu:20.04 lxccont
+- sudo lxc exec lxccont -- apt-get update
+- sudo lxc exec lxccont -- apt-get install -y python3 make g++
+- sudo lxc stop lxccont
+- sudo lxc publish lxccont --alias custom-lxd-image
+- sudo lxc image export custom-lxd-image custom-lxd-image
