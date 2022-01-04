@@ -27,24 +27,16 @@ before_install:
 - sudo lxc profile device add default eth0 nic nictype=bridged parent=lxdbr0 security.mac_filtering=true
 - sudo lxc profile device add default root disk path=/ pool=instances
 
-- sudo apt install curl unzip make --yes
-- curl -sLo /tmp/packer_1.5.1_linux_amd64.zip https://releases.hashicorp.com/packer/1.5.1/packer_1.5.1_linux_amd64.zip
-- sudo unzip -o /tmp/packer_1.5.1_linux_amd64.zip -d /usr/local/bin/
-
 - sudo snap install aws-cli --classic
 - sudo usermod -aG lxd travis
-install:
-# temporary changed to fork linuxmadness
-- git clone "https://github.com/travis-ci/packer-templates.git"
-- pushd packer-templates && git checkout -qf @ ; popd
 script:
-- export BUILDER="lxd"
 - export AWS_ACCESS_KEY_ID=$LXC_AWS_ACCESS_KEY_ID
 - export AWS_SECRET_ACCESS_KEY=$LXC_AWS_SECRET_ACCESS_KEY
-- export PACKER_TEMPLATES_BRANCH="master"
-- export TRAVIS_COOKBOOKS_BRANCH="master"
 - export ARTIFACTS_BUCKET="travis-lxc-images"
-- export PACKER_VERSION="1.5.1"
 - export TRAVIS_UID="1000"
-- pwd
-- echo ${TRAVIS_UID} && pushd packer-templates && sudo make ci-${IMAGE} && popd
+- lxc launch ubuntu:20.04 lxccont
+- lxc exec lxccont -- apt-get update
+- lxc exec lxccont -- apt-get install -y python3 make g++
+- lxc stop lxccont
+- lxc publish lxccont --alias custom-lxd-image
+- lxc image export custom-lxd-image custom-lxd-image
