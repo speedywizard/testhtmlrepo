@@ -1,15 +1,49 @@
-language: go
-script:
-  - env
-  - go version
-deploy:
-  provider: script
-  script: >-
-    echo 'hello'
-  on:
-    tags: true
-    all_branches: true
+dist: focal
 env:
   global:
-  - secure: J615X726rckAdNFz+FFmW1gBL9XnQdn9dq4g8/txNy0RBeNLK4PsnnCaZf23heFP503MnL7aDnYQnrQyL4Kv2XAR0/r4gOp2rBHAOM809FG3cdapfQfHEDmdbHAtctUYJZimXbhbt6aZojHa50TFUyKiGEo4RXOEZa99nZamftTaa9/5eZr718yNkciKDD8BrLXgGu4XMz8c04/zlLArzo9HXrO7PVZmYb+vB6L4fLVU5rR9e4+iUfz/ucg7KqBOGxUOq3S1ZNZn0Lz+HXRj3Vii0vPbO3ghlomgDr8W6GCvraH+9eO/JvHgzfvSVB1+F+Z5rGHFe0hYv5x1vq3Ww/qlbKrlFqVdhDjKhn2oCBEdHs0ZXR/P8ODInzO4qagLWrLhM3VUN072coo5uy+IkXHy6Pm48R25pmyh1CuwZraSh8kLBvpduz9p0BuzfHWEU1QVAeblTrfMA+J6fvkb/AjaF0yg0e4Pz0b6oZogm/7fVkySRqem2TszorK/10qFA+LSGHTIoapn/RvjldBPlmd0JPxbofqfSlhkyGN8/goj3GnlX5qWQvNktSGdY15H6Z8vJcHmWLxWfJ/DDXeTHf2C5pRh8ATGDP+Gt3i7jv8OMG2brKpeCKIX8UbS7ZtsObTR3Rs7OFEMFqmzg0POYAarH76DcCCyGhPiTrch0JE=
-  - secure: ifPMneVhDmM7PIVYMSfHfLYNMuUtParVf6g7DO6y16ESs0VdNcIC1ciYNJp+GuFyL1T/LRxnDG0awbX0ta+bKCY7pgnUq0E0cVXbThMfV43lUsMzZI5c8wJenjXkm647u0Etv3YW8RvI++n9Dn0t50VWhtLNxv8lcMtmgzz7TDRD4zSYLKtujc5QqGdutLGoPqIWnWIrMLZuzVilh/miai/uO55Dkp8m3VOAn68Q8vVwNrZkI6hmchPqilnkCbBG/a3zLihZi8MqJ73K94Z5l39pEm6bFR9ULkzBzNitndVVsvTJsE0MzOzCyAZeIA07vHs2jLQT9uJn2B8tCyrtSv57R62NIPzBmee8f/SqFIIrTP5hh7wcP194HTlLz+Av0cxLYUl6ufIBA/Lf+jiiIv8kiDlh81lewx/aixs8mTIwCxfMCPMhyr4YnLFb81ChVHueMYTjog3fAV++MywdeiuStFtcW6HDwNeXb8XrdizjcUwW29BpzSsOQ+HoZ9YnL8Ikzl7BXHaRLTSYN8UGQBCnEz9pvPPuN35Pv+kw1wU09zsEn8zKZY004iNE6HW5EOe3vtHoS8q62s/T8BWDpHasPMBolhvNPoO23WTycGNpOU7lQMzsXnBAZ8P30zHzDsKffinWx7qQsJ2nSEou59/KiypHIwPjopti9PhTuo0=
+  - IMAGE=ubuntu-1804-debug    # this is default value; in order to build different version, one must manually substitute this value with respective name from https://github.com/travis-ci/packer-templates/
+before_install:
+- sudo apt update -qq
+
+## Install snapd
+- sudo apt install snapd --yes
+- export PATH=/snap/bin/:$PATH
+- echo "export PATH=/snap/bin/:${PATH}" >> ~/.bashrc
+
+## Install and setup ZFS
+- sudo apt install zfsutils-linux --yes
+- sudo mkdir -p /mnt/data
+
+## Install and setup LXD
+- sudo apt remove --purge --yes lxd lxd-client liblxc1 lxcfs
+- sudo snap install --stable lxd
+- sudo snap set lxd shiftfs.enable=true
+
+- sudo lxc storage create instances zfs volume.zfs.use_refquota=true
+- sudo zfs set sync=disabled instances
+- sudo zfs set atime=off instances
+- sudo lxc storage create data dir source=/mnt/data
+- sudo lxc network create lxdbr0 dns.mode=none ipv4.address=192.168.0.1/24 ipv4.dhcp=true ipv4.firewall=false ipv4.nat=true
+- sudo lxc profile device add default eth0 nic nictype=bridged parent=lxdbr0 security.mac_filtering=true
+- sudo lxc profile device add default root disk path=/ pool=instances
+
+- sudo apt install curl unzip make --yes
+- curl -sLo /tmp/packer_1.5.1_linux_amd64.zip https://releases.hashicorp.com/packer/1.5.1/packer_1.5.1_linux_amd64.zip
+- sudo unzip -o /tmp/packer_1.5.1_linux_amd64.zip -d /usr/local/bin/
+
+- sudo snap install aws-cli --classic
+- sudo usermod -aG lxd travis
+install:
+# temporary changed to fork linuxmadness
+- git clone --branch="${PACKER_TEMPLATES_BRANCH}" "https://github.com/travis-ci/packer-templates.git"
+- pushd packer-templates && git checkout -qf @ ; popd
+script:
+- export BUILDER="lxd"
+- export AWS_ACCESS_KEY_ID=$LXC_AWS_ACCESS_KEY_ID
+- export AWS_SECRET_ACCESS_KEY=$LXC_AWS_SECRET_ACCESS_KEY
+- export PACKER_TEMPLATES_BRANCH="master"
+- export TRAVIS_COOKBOOKS_BRANCH="master"
+- export ARTIFACTS_BUCKET="travis-lxc-images"
+- export PACKER_VERSION="1.5.1"
+- export TRAVIS_UID="1000"
+- sudo su -m -l $USER -c "echo ${TRAVIS_UID} && pushd packer-templates && make ci-${IMAGE} && popd"
