@@ -35,8 +35,8 @@ before_install:
 - sudo usermod -aG lxd travis
 install:
 # temporary changed to fork linuxmadness
-- git clone --branch="${PACKER_TEMPLATES_BRANCH}" "https://github.com/travis-ci/packer-templates.git"
-- pushd packer-templates && git checkout -qf @ ; popd
+- git clone "https://github.com/travis-ci/packer-templates.git"
+# - pushd packer-templates && git checkout -qf @ ; popd
 script:
 - export BUILDER="lxd"
 - export AWS_ACCESS_KEY_ID=$LXC_AWS_ACCESS_KEY_ID
