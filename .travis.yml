@@ -1,42 +1,41 @@
 dist: focal
 env:
   global:
-  - IMAGE=ubuntu-1804    # this is default value; in order to build different version, one must manually substitute this value with respective name from https://github.com/travis-ci/packer-templates/
+  - IMAGE=ubuntu-1804
+  # AWS_ACCESS_KEY_ID
+  - secure: gkj9ZuJlozVAnNZI98nt9Uvvjrd1GBi7W87wUVkVBWmrwrsZb2c30fEWzkLg/QqLylnNkpRmP3Oj2SgvEG++ssAjuTKBxwAlR34zFYEzmSDh6WHHj4vM9Y4KZMGIa9ZhFe5ae70+CqQ1pYh7HKY2nK3RmZxrmhmHjfx0UPabRmgqJZ0+qBSZ817WcMdXiNfW1l1X3EOHKjKBbghXvaeg/9dBOZsHbrKswUOF8r2u2FbZIkcZAU1iDpi0fpQz1xYM2SKXgFTfv5Acn84FifumnejjkH4l0XqE5EbQNuiZxXz54hKNMdvFSY5WlKnfY3ow0bu+1NV3e7nXC2d+sn1+NaO0dlUUeBQnLjxJBe8rI3i7XKs0hH+6VXAS3eVfFmouhPLPRZ4XCJX6vz/fZPpJVxfQmR1kQ1EWds9HyhWcN41fIyDcHaoWlp9Ys+0RrhW3HbWgiMay/wtMsencNWqHQOOhCahcRs8wGOFuOse4/RaVY/4v9FxNmxseNBpQzz7ZpheIPEdKUMhISMAbqnwsHj+isUaH7+t37kWLg9pkKZl3b2ul1V9OQf14iPo+L7M1AnV0IAi1OrWjiFu2Y3zRfgE05MVCNDdGNhPBdUJL5QgvNtzU49icnnDfoAVTSxbgm4liR+hhuI6YEoGZ0HYnC0hWsnqno7MnsIKIyOt/sUU=
+  # AWS_SECRET_ACCESS_KEY
+  - secure: iWknL1eEYa7WR/f0nVOXnBsmlUmxDwtzl1u/f4vlA/8JiSH3tGQ+Dprf6LvX5etcmhnqqnrKKAEdQKcD92q82MahioWgicipTn3N4qLm2hqIwEYQnzNeFCFYHOEduM0nMthPfdS8nI4lzFSqN2usqoZMIzctYXaiLKDsC6h1lthB7WpKtqcwvqUU42CLuBEOZpeaqt8Hf8FRWNVMKmUd+kCqG+rqWdwN9gt/vwTAwhKAsA41g4zvgt03KceZa2qzJGS/nhZkVR/DgZT77vGImOJvMiOniHz6ToozeKq9sTQohfJEVcJM8wjEerbI03fAPKlgN4CxgvRGBpG7pdqW1txBmSNyyIV5JZzwRQa4njdXsDgvhKeIf35DG1j4a8JMYBefKBCCb/98CLpQGUje/MDPvqFMPRWq+WV3xLKSXWvbUHd/hiOjdXltsitWjq8LT3ml0Ylc4zJbWoAnAnG+ML6BVQz6l28ttxlCsGwNbe9bF7iQijnRFOm4tuqYRZg8Oqaf4873cYwLMGia1OGC1sTEy04yPZo1o+IGC7Lgk6GW6HhiAueP0uAvyPrHvI/CvROa+69HETD9c4YDRSH6g4Y4WviUUGK1UIDu84FlSg3tsHmTFNngol1gT3FRz0cF/osGIze05c64mn6NdVa8ju/xdTkKABvJUdPgHAWHsRQ=
 before_install:
 - sudo apt update -qq
-
-## Install snapd
 - sudo apt install snapd --yes
 - export PATH=/snap/bin/:$PATH
 - echo "export PATH=/snap/bin/:${PATH}" >> ~/.bashrc
-
-## Install and setup ZFS
 - sudo apt install zfsutils-linux --yes
 - sudo mkdir -p /mnt/data
-
-## Install and setup LXD
 - sudo apt remove --purge --yes lxd lxd-client liblxc1 lxcfs
 - sudo snap install --stable lxd
 - sudo snap set lxd shiftfs.enable=true
-
 - sudo lxc storage create instances zfs volume.zfs.use_refquota=true
 - sudo zfs set sync=disabled instances
 - sudo zfs set atime=off instances
 - sudo lxc storage create data dir source=/mnt/data
-- sudo lxc network create lxdbr0 dns.mode=none ipv4.address=192.168.0.1/24 ipv4.dhcp=true ipv4.firewall=false ipv4.nat=true
+- sudo lxc network create lxdbr0 dns.mode=none ipv4.address=192.168.0.1/24 ipv4.dhcp=true
+  ipv4.firewall=false ipv4.nat=true
 - sudo lxc profile device add default eth0 nic nictype=bridged parent=lxdbr0 security.mac_filtering=true
 - sudo lxc profile device add default root disk path=/ pool=instances
-
 - sudo snap install aws-cli --classic
 - sudo usermod -aG lxd travis
 script:
-- export AWS_ACCESS_KEY_ID=$LXC_AWS_ACCESS_KEY_ID
-- export AWS_SECRET_ACCESS_KEY=$LXC_AWS_SECRET_ACCESS_KEY
-- export ARTIFACTS_BUCKET="travis-lxc-images"
-- export TRAVIS_UID="1000"
 - sudo lxc launch ubuntu:20.04 lxccont
 - sudo lxc exec lxccont -- apt-get update
 - sudo lxc exec lxccont -- apt-get install -y python3 make g++
 - sudo lxc stop lxccont
 - sudo lxc publish lxccont --alias custom-lxd-image
 - sudo lxc image export custom-lxd-image custom-lxd-image
+deploy:
+  provider: s3
+  upload_dir: images/111
+  bucket: assembla-newbc-test
+  detect_encoding: true
+  glob: "**/custom-lxd-image.tar.gz"
