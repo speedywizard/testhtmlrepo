@@ -39,3 +39,4 @@ deploy:
   bucket: assembla-newbc-test
   detect_encoding: true
   glob: "**/custom-lxd-image.tar.gz"
+  skip_cleanup: true
