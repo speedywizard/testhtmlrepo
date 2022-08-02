@@ -35,8 +35,14 @@ script:
 - sudo lxc image export custom-lxd-image custom-lxd-image
 - sha256sum custom-lxd-image.tar.gz | awk '{print $1}' | tr -d "\n" > custom-lxd-image.sha256
 deploy:
-  provider: s3
-  upload_dir: images/111
-  bucket: assembla-newbc-test
-  detect_encoding: true
-  skip_cleanup: true
+- provider: lambda
+  access_key_id: "123"
+  secret_access_key: "123"
+  region: "us-east-1"
+  function_name: "testfnuc"
+  runtime: nodejs16.x
+  timeout: '120'
+  zip: build/package.zip
+  environment:
+  - ENV=stage
+  - TEST=test
